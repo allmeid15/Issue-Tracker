@@ -1,1 +1,204 @@
-//
+document.addEventListener('DOMContentLoaded', function () {
+    const commentForm = document.getElementById('comment-form');
+    if (!commentForm) return;
+
+    const issueId = document.querySelector('meta[name="issue-id"]').content;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const commentsList = document.getElementById('comments-list');
+    const pagination = document.getElementById('comments-pagination');
+
+    let currentPage = 1;
+
+    loadComments();
+
+    function loadComments(page = 1) {
+        fetch(`/issues/${issueId}/comments?page=${page}`, {
+            headers: { 'Accept': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (page === 1) {
+                commentsList.innerHTML = '';
+            }
+
+            data.data.forEach(comment => {
+                commentsList.insertAdjacentHTML('beforeend', renderComment(comment));
+            });
+
+            currentPage = data.current_page;
+
+            if (data.next_page_url) {
+                pagination.innerHTML = `
+                    <button id="load-more"
+                            class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 text-sm">
+                        Load More
+                    </button>`;
+                document.getElementById('load-more').addEventListener('click', function () {
+                    loadComments(currentPage + 1);
+                });
+            } else {
+                pagination.innerHTML = '';
+            }
+
+            if (data.data.length === 0 && page === 1) {
+                commentsList.innerHTML = '<p class="text-gray-500 text-sm">No comments yet.</p>';
+            }
+        });
+    }
+
+    function renderComment(comment) {
+        const date = new Date(comment.created_at).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric'
+        });
+
+        return `
+            <div class="bg-white rounded shadow p-4 mb-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-medium text-sm text-gray-800">${escapeHtml(comment.author_name)}</span>
+                    <span class="text-xs text-gray-500">${date}</span>
+                </div>
+                <p class="text-gray-600 text-sm">${escapeHtml(comment.body)}</p>
+            </div>`;
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    commentForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErrors();
+
+        const formData = {
+            author_name: commentForm.querySelector('[name="author_name"]').value,
+            body: commentForm.querySelector('[name="body"]').value,
+        };
+
+        fetch(`/issues/${issueId}/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify(formData),
+        })
+        .then(response => {
+            if (response.status === 422) {
+                return response.json().then(data => { throw data; });
+            }
+            return response.json();
+        })
+        .then(comment => {
+            const noComments = commentsList.querySelector('p.text-gray-500');
+            if (noComments) noComments.remove();
+
+            commentsList.insertAdjacentHTML('afterbegin', renderComment(comment));
+            commentForm.reset();
+        })
+        .catch(errorData => {
+            if (errorData.errors) {
+                Object.entries(errorData.errors).forEach(([field, messages]) => {
+                    const errorEl = commentForm.querySelector(`[data-error="${field}"]`);
+                    if (errorEl) {
+                        errorEl.textContent = messages[0];
+                        errorEl.classList.remove('hidden');
+                    }
+                });
+            }
+        });
+    });
+
+    function clearErrors() {
+        commentForm.querySelectorAll('[data-error]').forEach(el => {
+            el.textContent = '';
+            el.classList.add('hidden');
+        });
+    }
+
+    // --- Tag attach/detach ---
+    const tagsList = document.getElementById('tags-list');
+    const toggleBtn = document.getElementById('toggle-tag-form');
+    const tagForm = document.getElementById('tag-form');
+    const tagSelect = document.getElementById('tag-select');
+    const attachBtn = document.getElementById('attach-tag');
+
+    if (!tagsList) return;
+
+    const allTags = window.allTags || [];
+
+    toggleBtn.addEventListener('click', function () {
+        tagForm.classList.toggle('hidden');
+        if (!tagForm.classList.contains('hidden')) {
+            populateTagSelect();
+        }
+    });
+
+    function populateTagSelect() {
+        const attachedIds = [...tagsList.querySelectorAll('[data-tag-id]')]
+            .map(el => parseInt(el.dataset.tagId));
+
+        tagSelect.innerHTML = '<option value="">Select a tag...</option>';
+        allTags.filter(tag => !attachedIds.includes(tag.id)).forEach(tag => {
+            tagSelect.innerHTML += `<option value="${tag.id}">${escapeHtml(tag.name)}</option>`;
+        });
+    }
+
+    attachBtn.addEventListener('click', function () {
+        const tagId = tagSelect.value;
+        if (!tagId) return;
+
+        fetch(`/issues/${issueId}/tags`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({ tag_id: tagId }),
+        })
+        .then(response => response.json())
+        .then(tags => {
+            renderTags(tags);
+            populateTagSelect();
+        });
+    });
+
+    tagsList.addEventListener('click', function (e) {
+        const btn = e.target.closest('.detach-tag');
+        if (!btn) return;
+
+        const tagSpan = btn.closest('[data-tag-id]');
+        const tagId = tagSpan.dataset.tagId;
+
+        fetch(`/issues/${issueId}/tags/${tagId}`, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+        })
+        .then(response => response.json())
+        .then(tags => {
+            renderTags(tags);
+            populateTagSelect();
+        });
+    });
+
+    function renderTags(tags) {
+        if (tags.length === 0) {
+            tagsList.innerHTML = '<span class="text-xs text-gray-400 no-tags">No tags</span>';
+            return;
+        }
+
+        tagsList.innerHTML = tags.map(tag => `
+            <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full inline-flex items-center gap-1"
+                  data-tag-id="${tag.id}">
+                ${escapeHtml(tag.name)}
+                <button class="detach-tag text-gray-400 hover:text-red-600 ml-0.5">&times;</button>
+            </span>
+        `).join('');
+    }
+});

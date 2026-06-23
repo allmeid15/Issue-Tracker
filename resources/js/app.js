@@ -201,4 +201,88 @@ document.addEventListener('DOMContentLoaded', function () {
             </span>
         `).join('');
     }
+    // --- User assign/detach ---
+const usersList = document.getElementById('users-list');
+const toggleUserBtn = document.getElementById('toggle-user-form');
+const userForm = document.getElementById('user-form');
+const userSelect = document.getElementById('user-select');
+const attachUserBtn = document.getElementById('attach-user');
+
+if (usersList && toggleUserBtn) {
+    const allUsers = window.allUsers || [];
+
+    toggleUserBtn.addEventListener('click', function () {
+        userForm.classList.toggle('hidden');
+        if (!userForm.classList.contains('hidden')) {
+            populateUserSelect();
+        }
+    });
+
+    function populateUserSelect() {
+        const assignedIds = [...usersList.querySelectorAll('[data-user-id]')]
+            .map(el => parseInt(el.dataset.userId));
+
+        userSelect.innerHTML = '<option value="">Select a user...</option>';
+        allUsers.filter(u => !assignedIds.includes(u.id)).forEach(u => {
+            userSelect.innerHTML += `<option value="${u.id}">${escapeHtml(u.name)}</option>`;
+        });
+    }
+
+    attachUserBtn.addEventListener('click', function () {
+        const userId = userSelect.value;
+        if (!userId) return;
+
+        fetch(`/issues/${issueId}/users`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+            body: JSON.stringify({ user_id: userId }),
+        })
+        .then(response => response.json())
+        .then(users => {
+            renderUsers(users);
+            populateUserSelect();
+        });
+    });
+
+    usersList.addEventListener('click', function (e) {
+        const btn = e.target.closest('.detach-user');
+        if (!btn) return;
+
+        const userSpan = btn.closest('[data-user-id]');
+        const userId = userSpan.dataset.userId;
+
+        fetch(`/issues/${issueId}/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken,
+            },
+        })
+        .then(response => response.json())
+        .then(users => {
+            renderUsers(users);
+            populateUserSelect();
+        });
+    });
+
+    function renderUsers(users) {
+        if (users.length === 0) {
+            usersList.innerHTML = '<span class="text-xs text-gray-400 no-users">No members assigned</span>';
+            return;
+        }
+
+        usersList.innerHTML = users.map(user => `
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full inline-flex items-center gap-1"
+                  data-user-id="${user.id}">
+                ${escapeHtml(user.name)}
+                <button class="detach-user text-blue-400 hover:text-red-600 ml-0.5">&times;</button>
+            </span>
+        `).join('');
+    }
+}
+
 });

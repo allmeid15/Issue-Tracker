@@ -59,7 +59,7 @@
                 </button>
             </div>
 
-            {{-- Tag manage form (hidden by default) --}}
+            
             <div id="tag-form" class="hidden bg-gray-50 rounded p-3 mb-3">
                 <select id="tag-select"
                         class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -84,8 +84,37 @@
             </div>
         </div>
 
+        <div class="mt-4">
+    <div class="flex items-center gap-2 mb-2">
+        <h3 class="text-sm font-medium text-gray-700">Assigned Members</h3>
+        <button id="toggle-user-form" class="text-xs text-blue-600 hover:underline">+ Manage Members</button>
+    </div>
 
-        {{-- Comments section --}}
+    <div id="user-form" class="hidden bg-gray-50 rounded p-3 mb-3">
+        <select id="user-select"
+                class="border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Select a user...</option>
+        </select>
+        <button id="attach-user"
+                class="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 text-sm ml-1">
+            Assign
+        </button>
+    </div>
+
+    <div id="users-list" class="flex flex-wrap gap-1">
+        @forelse($issue->users as $user)
+            <span class="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full inline-flex items-center gap-1"
+                  data-user-id="{{ $user->id }}">
+                {{ $user->name }}
+                <button class="detach-user text-blue-400 hover:text-red-600 ml-0.5">&times;</button>
+            </span>
+        @empty
+            <span class="text-xs text-gray-400 no-users">No members assigned</span>
+        @endforelse
+    </div>
+</div>
+
+        
        <h2 class="text-xl font-semibold text-gray-800 mb-4">Comments</h2>
 
     <div class="bg-white rounded shadow p-4 mb-4">
@@ -116,6 +145,7 @@
     @push('scripts')
     <script>
     window.allTags = @json(\App\Models\Tag::orderBy('name')->get(['id', 'name']));
+    window.allUsers = @json(\App\Models\User::orderBy('name')->get(['id', 'name']));
     </script>
 @endpush
 

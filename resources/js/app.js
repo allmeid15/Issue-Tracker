@@ -1,4 +1,50 @@
 document.addEventListener('DOMContentLoaded', function () {
+
+      const searchInput = document.getElementById('issue-search');
+if (searchInput) {
+    const searchResults = document.getElementById('search-results');
+    let debounceTimer;
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(debounceTimer);
+        const query = this.value.trim();
+
+        if (query.length < 2) {
+            searchResults.classList.add('hidden');
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        debounceTimer = setTimeout(() => {
+            fetch(`/issues/search?q=${encodeURIComponent(query)}`, {
+                headers: { 'Accept': 'application/json' },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.data.length === 0) {
+                    searchResults.innerHTML = '<p class="text-gray-500 text-sm">No issues found.</p>';
+                } else {
+                    searchResults.innerHTML = data.data.map(issue => `
+                        <a href="/projects/${issue.project_id}/issues/${issue.id}"
+                           class="block bg-white rounded shadow mb-2 p-3 hover:bg-gray-50">
+                            <div class="flex items-center justify-between">
+                                <span class="text-blue-600 font-medium text-sm">${escapeHtml(issue.title)}</span>
+                                <span class="text-xs text-gray-400">${escapeHtml(issue.project?.name ?? '')}</span>
+                            </div>
+                        </a>
+                    `).join('');
+                }
+                searchResults.classList.remove('hidden');
+            });
+        }, 300);
+    });
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+            }
+        }
     const commentForm = document.getElementById('comment-form');
     if (!commentForm) return;
 
@@ -281,8 +327,7 @@ if (usersList && toggleUserBtn) {
                 ${escapeHtml(user.name)}
                 <button class="detach-user text-blue-400 hover:text-red-600 ml-0.5">&times;</button>
             </span>
-        `).join('');
+            `).join('');
+        }
     }
-}
-
 });

@@ -104,4 +104,18 @@ class IssueController extends Controller
         return redirect() ->route('projects.issues.index', $project)
                           ->with('success', 'Issue deleted.');   
     }
+
+    public function search(Request $request)
+    {
+        $query = $request->input('q', '');
+    
+        $issues = Issue::where('title', 'like', "%{$query}%")
+            ->orWhere('description', 'like', "%{$query}%")
+            ->with(['project', 'tags'])
+            ->latest()
+            ->paginate(10);
+    
+        return response()->json($issues);
+    }
+
 }

@@ -11,7 +11,12 @@
         </a>
     </div>
 
-    {{-- Filter form --}}
+    <div class="mb-4">
+        <input type="text" id="issue-search" placeholder="Search issues by title or description..."
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <div id="search-results" class="hidden mt-3"></div>
+    </div>
+    
     <form action="{{ route('projects.issues.index', $project) }}" method="GET"
           class="bg-white rounded shadow p-4 mb-6 flex items-end gap-4 flex-wrap">
         <div>
@@ -65,7 +70,7 @@
         </div>
     </form>
 
-    {{-- Issue list --}}
+    
     @forelse($issues as $issue)
         <div class="bg-white rounded shadow mb-3 p-4 flex items-center justify-between">
             <div>

@@ -24,7 +24,6 @@ class StoreIssueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'project_id' => 'required|exists:projects,id',
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'status' => ['required', Rule::in(['open', 'in_progress', 'closed'])],
